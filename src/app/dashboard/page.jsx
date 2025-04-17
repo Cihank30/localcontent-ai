@@ -17,7 +17,6 @@ import {
   deleteDoc,
   doc
 } from 'firebase/firestore';
-import { model } from '@/lib/gemini';
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -26,11 +25,14 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(false);
   const [historique, setHistorique] = useState([]);
   const [userUID, setUserUID] = useState(null);
+  const [scheduledDate, setScheduledDate] = useState('');
+  const [selectedPost, setSelectedPost] = useState(null);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       if (!user) {
-        router.push('/login');
+        alert('Vous devez être connecté pour accéder à cette page.');
+        router.push('/'); // Redirection vers la page d'accueil
       } else {
         setUserUID(user.uid);
         chargerHistorique(user.uid);
@@ -57,44 +59,46 @@ export default function DashboardPage() {
     }
   };
 
-  const genererAvecGemini = async () => {
-    if (!domaine) return alert('Entre un secteur !');
-    setLoading(true);
-    try {
-      const prompt = `Génère un post engageant pour une entreprise dans ce secteur : ${domaine}. Sois original et professionnel.`;
-      const result = await model.generateContent(prompt);
-      const text = result.response.text();
-      setResultat(text);
+  const genererPost = async () => {
+    if (!domaine) return alert('Veuillez entrer un domaine !');
 
-      if (userUID) {
-        await addDoc(collection(db, 'posts'), {
-          uid: userUID,
-          domaine,
-          texte: text,
-          createdAt: new Date(),
-        });
-        chargerHistorique(userUID);
-      }
+    setLoading(true);
+
+    try {
+      const generatedText = `✨ **Bienvenue chez ${domaine.toUpperCase()} !** ✨\n\n🍕 **Découvrez nos services exceptionnels dans le domaine de ${domaine} !**\n\n🌟 **Pourquoi nous choisir ?**\n✅ **Qualité garantie**\n✅ **Service rapide et fiable**\n✅ **Satisfaction client assurée**\n\n📅 **Planifiez votre visite dès aujourd'hui et profitez de nos offres exclusives !**`;
+
+      setResultat(generatedText);
+
+      await addDoc(collection(db, 'posts'), {
+        uid: userUID,
+        domaine,
+        texte: generatedText,
+        createdAt: new Date(),
+        scheduledDate,
+      });
+
+      chargerHistorique(userUID);
     } catch (error) {
-      console.error('Erreur génération :', error);
-      setResultat('Erreur lors de la génération.');
+      console.error('Erreur lors de la génération du post :', error);
+      alert('Une erreur est survenue lors de la génération.');
     }
+
     setLoading(false);
   };
 
   const supprimerPost = async (postId) => {
     try {
       await deleteDoc(doc(db, 'posts', postId));
-      alert("Post supprimé !");
-      if (userUID) chargerHistorique(userUID);
+      alert('Post supprimé avec succès.');
+      chargerHistorique(userUID);
     } catch (error) {
-      console.error("Erreur suppression :", error);
+      console.error('Erreur lors de la suppression du post :', error);
     }
   };
 
   const logout = async () => {
     await signOut(auth);
-    router.push('/login');
+    router.push('/'); // Redirection vers la page d'accueil après déconnexion
   };
 
   return (
@@ -102,127 +106,76 @@ export default function DashboardPage() {
       {/* Header */}
       <header className="w-full px-6 py-4 flex justify-between items-center border-b border-gray-800 bg-gray-900">
         <h1 className="text-xl md:text-2xl font-bold text-purple-400">LocalContent AI</h1>
-        <button
-          onClick={logout}
-          className="bg-red-600 hover:bg-red-700 text-white px-4 py-1 rounded text-sm"
-        >
-          Se déconnecter
-        </button>
+        <nav className="flex space-x-4">
+          <a href="/pricing" className="text-purple-400 hover:underline text-sm">Tarifs</a>
+          <a href="/dashboard/analytics" className="text-purple-400 hover:underline text-sm">Analytics</a>
+          <button
+            onClick={logout}
+            className="bg-red-600 hover:bg-red-700 text-white px-4 py-1 rounded text-sm"
+          >
+            Se déconnecter
+          </button>
+        </nav>
       </header>
 
       {/* Main content */}
-      <main className="flex flex-col items-center px-4 py-10">
-        <input
-          type="text"
-          placeholder="Ex: pizzeria, coiffeur, garage..."
-          className="p-2 border border-gray-600 bg-gray-800 text-white rounded w-full max-w-md mb-4"
-          value={domaine}
-          onChange={(e) => setDomaine(e.target.value)}
-        />
+      <main className="px-4 py-10">
+        <h2 className="text-2xl font-bold mb-6 text-center">Générer un nouveau post</h2>
+        <div className="flex flex-col items-center">
+          <input
+            type="text"
+            placeholder="Ex: pizzeria, coiffeur, garage..."
+            className="p-2 border border-gray-600 bg-gray-800 text-white rounded w-full max-w-md mb-4"
+            value={domaine}
+            onChange={(e) => setDomaine(e.target.value)}
+          />
 
-        <button
-          onClick={genererAvecGemini}
-          disabled={loading}
-          className="bg-purple-600 text-white px-4 py-2 rounded hover:bg-purple-700"
-        >
-          {loading ? 'Génération en cours...' : 'Générer un post avec Gemini'}
-        </button>
+          <input
+            type="datetime-local"
+            className="p-2 border border-gray-600 bg-gray-800 text-white rounded w-full mb-4"
+            value={scheduledDate}
+            onChange={(e) => setScheduledDate(e.target.value)}
+          />
+
+          <button
+            onClick={genererPost}
+            disabled={loading}
+            className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 mt-2"
+          >
+            {loading ? 'Génération en cours...' : 'Générer un post'}
+          </button>
+        </div>
 
         {resultat && (
-          <div className="bg-gray-800 text-white p-4 mt-6 rounded max-w-2xl w-full relative">
-            <h2 className="text-xl font-bold mb-2">Post généré :</h2>
-            <p>{resultat}</p>
-            <button
-              onClick={() => {
-                navigator.clipboard.writeText(resultat);
-                alert("Contenu copié !");
-              }}
-              className="absolute top-2 right-2 bg-blue-600 hover:bg-blue-700 text-white px-2 py-1 text-xs rounded"
-            >
-              Copier
-            </button>
+          <div className="bg-gradient-to-r from-purple-600 via-pink-500 to-red-500 text-white p-6 mt-6 rounded-lg shadow-lg max-w-2xl w-full mx-auto">
+            <h2 className="text-3xl font-extrabold mb-4 text-center">🎉 Votre Post Généré 🎉</h2>
+            <p className="whitespace-pre-line text-lg leading-relaxed font-medium">
+              {resultat}
+            </p>
           </div>
         )}
 
-        {/* Historique */}
-        <div className="mt-10 max-w-2xl w-full">
-          <h2 className="text-2xl font-bold text-white mb-4">📚 Historique des posts</h2>
-          {historique.length === 0 ? (
-            <p className="text-gray-400">Aucun post généré pour l’instant.</p>
-          ) : (
-            <ul className="space-y-4">
-              {historique.map((post) => (
-                <li key={post.id} className="bg-gray-900 text-white p-4 rounded shadow relative">
-                  <strong className="text-purple-300">{post.domaine}</strong>
-                  <p className="mt-2 text-sm">{post.texte}</p>
-
-                  <div className="absolute top-2 right-2 space-x-2">
-                    <button
-                      onClick={() => {
-                        navigator.clipboard.writeText(post.texte);
-                        alert("Contenu copié !");
-                      }}
-                      className="bg-blue-600 hover:bg-blue-700 text-white px-2 py-1 text-xs rounded"
-                    >
-                      Copier
-                    </button>
-                    <button
-                      onClick={() => supprimerPost(post.id)}
-                      className="bg-red-600 hover:bg-red-700 text-white px-2 py-1 text-xs rounded"
-                    >
-                      Supprimer
-                    </button>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          )}
+        <h2 className="text-2xl font-bold mt-10 mb-6 text-center">Historique des posts</h2>
+        <div className="space-y-4">
+          {historique.map((post) => (
+            <div
+              key={post.id}
+              className="bg-gray-800 p-4 rounded-lg shadow-md flex justify-between items-center"
+            >
+              <div>
+                <h3 className="text-lg font-bold">{post.domaine}</h3>
+                <p className="text-sm text-gray-400">{post.texte}</p>
+              </div>
+              <button
+                onClick={() => supprimerPost(post.id)}
+                className="bg-red-600 hover:bg-red-700 text-white px-4 py-1 rounded text-sm"
+              >
+                Supprimer
+              </button>
+            </div>
+          ))}
         </div>
       </main>
     </div>
   );
 }
-const genererAvecGemini = async () => {
-  if (!domaine) return alert('Entre un secteur !');
-  if (!userUID) return;
-
-  setLoading(true);
-
-  try {
-    // 🔥 Récupère le nombre de posts existants
-    const q = query(
-      collection(db, 'posts'),
-      where('uid', '==', userUID)
-    );
-    const snap = await getDocs(q);
-
-    // 💡 Limite gratuite : 3 posts max
-    const limiteGratuite = 3;
-    if (snap.size >= limiteGratuite) {
-      alert("Tu as atteint la limite gratuite (3 posts). Passe au plan Pro pour continuer !");
-      setLoading(false);
-      return;
-    }
-
-    // 🔮 Génération IA
-    const prompt = `Génère un post engageant pour une entreprise dans ce secteur : ${domaine}. Sois original et professionnel.`;
-    const result = await model.generateContent(prompt);
-    const text = result.response.text();
-    setResultat(text);
-
-    // 💾 Sauvegarde
-    await addDoc(collection(db, 'posts'), {
-      uid: userUID,
-      domaine,
-      texte: text,
-      createdAt: new Date(),
-    });
-
-    chargerHistorique(userUID);
-  } catch (error) {
-    console.error('Erreur génération :', error);
-    setResultat('Erreur lors de la génération.');
-  }
-
-  setLoading(false);
-};

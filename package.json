@@ -9,8 +9,13 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@genkit-ai/googleai": "^1.6.0",
+    "@vercel/analytics": "^1.5.0",
     "firebase": "^11.6.0",
+    "genkit": "^1.6.0",
+    "groq-sdk": "^0.19.0",
     "next": "15.3.0",
+    "openai": "^4.94.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"
   },
