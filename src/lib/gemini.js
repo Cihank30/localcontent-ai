@@ -15,4 +15,6 @@ const app = initializeApp(firebaseConfig);
 const vertexAI = getVertexAI(app);
 
 // Modèle Gemini 2 (texte rapide et pas cher)
-export const model = getGenerativeModel(vertexAI, { model: "gemini-2.0-flash" });
+export const model = getGenerativeModel(vertexAI, {
+  model: "gemini-2.0-flash",
+});

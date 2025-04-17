@@ -1,4 +1,4 @@
-import { Groq } from 'groq-sdk';
+import { Groq } from "groq-sdk";
 
 export default async function handler(req, res) {
   const groq = new Groq({ apiKey: process.env.YOUR_SECRET });
@@ -6,9 +6,7 @@ export default async function handler(req, res) {
   try {
     const response = await groq.chat.completions.create({
       model: "llama-3.3-70b-versatile",
-      messages: [
-        { role: "user", content: "Hello from Vercel!" }
-      ]
+      messages: [{ role: "user", content: "Hello from Vercel!" }],
     });
 
     res.status(200).json({ message: response.choices[0].message.content });
